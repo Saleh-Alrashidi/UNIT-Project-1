@@ -1,0 +1,299 @@
+{% extends 'base.html' %}
+
+{% block title %}Departments - Ability Center Finance{% endblock %}
+
+{% block content %}
+<div class="space-y-6">
+    <h1 class="text-3xl font-bold text-primary">Departments & Employees</h1>
+
+    <!-- Add New Department Section -->
+    <div class="bg-white shadow rounded-lg p-6">
+        <div class="flex justify-between items-center mb-4">
+            <h2 class="text-xl font-semibold text-gray-900">Add New Department</h2>
+            <button id="toggleDeptForm" class="bg-primary hover:bg-blue-700 text-white px-4 py-2 rounded-md transition-colors">
+                Add Department
+            </button>
+        </div>
+        
+        <div id="deptForm" class="hidden">
+            <form method="post" action="{% url 'departments:create_department' %}" class="space-y-4">
+                {% csrf_token %}
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                        <label for="name" class="block text-sm font-medium text-gray-700 mb-1">Department Name:</label>
+                        <input type="text" id="name" name="name" required 
+                               class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent">
+                    </div>
+                    <div>
+                        <label for="manager" class="block text-sm font-medium text-gray-700 mb-1">Manager:</label>
+                        <input type="text" id="manager" name="manager" 
+                               class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent">
+                    </div>
+                </div>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                        <label for="budget_allocated" class="block text-sm font-medium text-gray-700 mb-1">Budget Allocated:</label>
+                        <input type="number" id="budget_allocated" name="budget_allocated" step="0.01" value="0" 
+                               class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent">
+                    </div>
+                    <div>
+                        <label for="budget_used" class="block text-sm font-medium text-gray-700 mb-1">Budget Used:</label>
+                        <input type="number" id="budget_used" name="budget_used" step="0.01" value="0" 
+                               class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent">
+                    </div>
+                </div>
+                <div>
+                    <label for="description" class="block text-sm font-medium text-gray-700 mb-1">Description:</label>
+                    <textarea id="description" name="description" rows="3" 
+                              class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"></textarea>
+                </div>
+                <button type="submit" class="bg-green-500 hover:bg-green-600 text-white px-6 py-2 rounded-md transition-colors">
+                    Create Department
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Departments Grid -->
+    <div class="bg-white shadow rounded-lg p-6">
+        <h2 class="text-xl font-semibold text-gray-900 mb-6">Departments</h2>
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {% for department in departments %}
+            <div class="border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow">
+                <div class="flex justify-between items-start mb-3">
+                    <h3 class="font-semibold text-lg text-gray-900">{{ department.name }}</h3>
+                    <span class="inline-flex px-2 py-1 text-xs font-semibold rounded-full 
+                        {% if department.is_active %}bg-green-100 text-green-800{% else %}bg-red-100 text-red-800{% endif %}">
+                        {{ department.is_active|yesno:"Active,Inactive" }}
+                    </span>
+                </div>
+                
+                <div class="space-y-2 text-sm text-gray-600 mb-4">
+                    <p><span class="font-medium">Manager:</span> {{ department.manager|default:"Not assigned" }}</p>
+                    <p><span class="font-medium">Employees:</span> {{ department.employee_count }}</p>
+                    <p><span class="font-medium">Budget Allocated:</span> 
+                       <span class="font-semibold text-gray-900">${{ department.budget_allocated|floatformat:2 }}</span></p>
+                    <p><span class="font-medium">Budget Used:</span> 
+                       <span class="font-semibold text-red-600">${{ department.budget_used|floatformat:2 }}</span></p>
+                    <p><span class="font-medium">Budget Remaining:</span> 
+                       <span class="font-semibold {% if department.budget_remaining >= 0 %}text-green-600{% else %}text-red-600{% endif %}">
+                           ${{ department.budget_remaining|floatformat:2 }}
+                       </span></p>
+                    {% if department.description %}
+                    <p><span class="font-medium">Description:</span> {{ department.description }}</p>
+                    {% endif %}
+                </div>
+                
+                <div class="mb-4">
+                    <div class="flex justify-between items-center mb-1">
+                        <span class="text-sm font-medium text-gray-700">Budget Usage</span>
+                        <span class="text-sm font-medium text-gray-700">{{ department.budget_percentage_used|floatformat:1 }}%</span>
+                    </div>
+                    <div class="w-full bg-gray-200 rounded-full h-2">
+                        <div class="h-2 rounded-full 
+                            {% if department.budget_percentage_used > 100 %}bg-red-500
+                            {% elif department.budget_percentage_used > 90 %}bg-yellow-500
+                            {% elif department.budget_percentage_used > 70 %}bg-orange-500
+                            {% else %}bg-green-500{% endif %}" 
+                             style="width: {{ department.budget_percentage_used|default:0 }}%"></div>
+                    </div>
+                </div>
+                
+                <div class="flex space-x-2">
+                    <button onclick="showEmployees({{ department.id }})" 
+                            class="flex-1 text-center bg-blue-100 hover:bg-blue-200 text-blue-700 px-3 py-2 rounded text-sm transition-colors">
+                        View Employees
+                    </button>
+                    <a href="{% url 'departments:edit_department' department.id %}" 
+                       class="flex-1 text-center bg-gray-100 hover:bg-gray-200 text-gray-700 px-3 py-2 rounded text-sm transition-colors">
+                        Edit
+                    </a>
+                    <a href="{% url 'departments:delete_department' department.id %}" 
+                       class="flex-1 text-center bg-red-100 hover:bg-red-200 text-red-700 px-3 py-2 rounded text-sm transition-colors" 
+                       onclick="return confirm('Are you sure?')">
+                        Delete
+                    </a>
+                </div>
+            </div>
+            {% empty %}
+            <div class="col-span-full text-center py-8">
+                <div class="text-gray-400 mb-2">
+                    <svg class="mx-auto h-12 w-12" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 
+                              d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+                    </svg>
+                </div>
+                <p class="text-gray-500">No departments created yet. Click "Add Department" to get started.</p>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+
+    <!-- Add New Employee Section -->
+    <div class="bg-white shadow rounded-lg p-6">
+        <div class="flex justify-between items-center mb-4">
+            <h2 class="text-xl font-semibold text-gray-900">Add New Employee</h2>
+            <button id="toggleEmpForm" class="bg-primary hover:bg-blue-700 text-white px-4 py-2 rounded-md transition-colors">
+                Add Employee
+            </button>
+        </div>
+        
+        <div id="empForm" class="hidden">
+            <form method="post" action="{% url 'departments:create_employee' %}" class="space-y-4">
+                {% csrf_token %}
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                        <label for="emp_name" class="block text-sm font-medium text-gray-700 mb-1">Employee Name:</label>
+                        <input type="text" id="emp_name" name="name" required 
+                               class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent">
+                    </div>
+                    <div>
+                        <label for="department" class="block text-sm font-medium text-gray-700 mb-1">Department:</label>
+                        <select id="department" name="department" required 
+                                class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent">
+                            <option value="">Select Department</option>
+                            {% for dept in departments %}
+                            <option value="{{ dept.id }}">{{ dept.name }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                </div>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                        <label for="position" class="block text-sm font-medium text-gray-700 mb-1">Position:</label>
+                        <input type="text" id="position" name="position" required 
+                               class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent">
+                    </div>
+                    <div>
+                        <label for="salary" class="block text-sm font-medium text-gray-700 mb-1">Salary:</label>
+                        <input type="number" id="salary" name="salary" step="0.01" required 
+                               class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent">
+                    </div>
+                </div>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                        <label for="hire_date" class="block text-sm font-medium text-gray-700 mb-1">Hire Date:</label>
+                        <input type="date" id="hire_date" name="hire_date" required 
+                               class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent">
+                    </div>
+                    <div>
+                        <label for="email" class="block text-sm font-medium text-gray-700 mb-1">Email:</label>
+                        <input type="email" id="email" name="email" 
+                               class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent">
+                    </div>
+                </div>
+                <div>
+                    <label for="phone" class="block text-sm font-medium text-gray-700 mb-1">Phone:</label>
+                    <input type="tel" id="phone" name="phone" 
+                           class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent">
+                </div>
+                <button type="submit" class="bg-green-500 hover:bg-green-600 text-white px-6 py-2 rounded-md transition-colors">
+                    Add Employee
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <!-- All Employees Table -->
+    <div class="bg-white shadow rounded-lg p-6">
+        <h2 class="text-xl font-semibold text-gray-900 mb-4">All Employees</h2>
+        <div class="overflow-x-auto">
+            <table class="min-w-full divide-y divide-gray-200">
+                <thead class="bg-gray-50">
+                    <tr>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Name</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Department</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Position</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Salary</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Hire Date</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                    </tr>
+                </thead>
+                <tbody class="bg-white divide-y divide-gray-200">
+                    {% for employee in employees %}
+                    <tr class="hover:bg-gray-50">
+                        <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{{ employee.name }}</td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{{ employee.department.name }}</td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{{ employee.position }}</td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">${{ employee.salary|floatformat:2 }}</td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{{ employee.hire_date }}</td>
+                        <td class="px-6 py-4 whitespace-nowrap">
+                            <span class="inline-flex px-2 py-1 text-xs font-semibold rounded-full 
+                                {% if employee.is_active %}bg-green-100 text-green-800{% else %}bg-red-100 text-red-800{% endif %}">
+                                {{ employee.is_active|yesno:"Active,Inactive" }}
+                            </span>
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm font-medium space-x-2">
+                            <a href="{% url 'departments:edit_employee' employee.id %}" 
+                               class="text-indigo-600 hover:text-indigo-900">Edit</a>
+                            <a href="{% url 'departments:delete_employee' employee.id %}" 
+                               class="text-red-600 hover:text-red-900" 
+                               onclick="return confirm('Are you sure?')">Delete</a>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="7" class="px-6 py-4 text-center text-gray-500">No employees found</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- Department Overview -->
+    <div class="grid grid-cols-1 md:grid-cols-4 gap-6">
+        <div class="bg-blue-50 border border-blue-200 rounded-lg p-6">
+            <h3 class="text-lg font-medium text-blue-900 mb-2">Total Departments</h3>
+            <p class="text-2xl font-bold text-blue-600">{{ overview.total_departments }}</p>
+        </div>
+        <div class="bg-green-50 border border-green-200 rounded-lg p-6">
+            <h3 class="text-lg font-medium text-green-900 mb-2">Active Departments</h3>
+            <p class="text-2xl font-bold text-green-600">{{ overview.active_departments }}</p>
+        </div>
+        <div class="bg-purple-50 border border-purple-200 rounded-lg p-6">
+            <h3 class="text-lg font-medium text-purple-900 mb-2">Total Employees</h3>
+            <p class="text-2xl font-bold text-purple-600">{{ overview.total_employees }}</p>
+        </div>
+        <div class="bg-yellow-50 border border-yellow-200 rounded-lg p-6">
+            <h3 class="text-lg font-medium text-yellow-900 mb-2">Average Salary</h3>
+            <p class="text-2xl font-bold text-yellow-600">${{ overview.average_salary|floatformat:2 }}</p>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.getElementById('toggleDeptForm').addEventListener('click', function() {
+    const form = document.getElementById('deptForm');
+    if (form.classList.contains('hidden')) {
+        form.classList.remove('hidden');
+        this.textContent = 'Hide Form';
+    } else {
+        form.classList.add('hidden');
+        this.textContent = 'Add Department';
+    }
+});
+
+document.getElementById('toggleEmpForm').addEventListener('click', function() {
+    const form = document.getElementById('empForm');
+    if (form.classList.contains('hidden')) {
+        form.classList.remove('hidden');
+        this.textContent = 'Hide Form';
+    } else {
+        form.classList.add('hidden');
+        this.textContent = 'Add Employee';
+    }
+});
+
+// Set today's date as default for hire date
+document.getElementById('hire_date').valueAsDate = new Date();
+
+function showEmployees(departmentId) {
+    // This would typically show a modal or filter the employee table
+    alert('Show employees for department ID: ' + departmentId);
+}
+</script>
+{% endblock %}
